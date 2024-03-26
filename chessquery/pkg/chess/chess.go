@@ -2,7 +2,6 @@ package chess
 
 import (
 	"errors"
-	"strconv"
 )
 
 var (
@@ -53,6 +52,17 @@ type Move struct {
 	FromRow int
 	ToRow   int
 	Promote PieceType
+}
+
+const None = -1
+
+func newMove() *Move {
+	return &Move{
+		FromCol: None,
+		ToCol:   None,
+		FromRow: None,
+		ToRow:   None,
+	}
 }
 
 type Position struct {
@@ -106,7 +116,7 @@ func (p *Position) Parse(a string) (*Move, error) {
 	if len(a) == 0 {
 		return nil, ErrInvalid
 	}
-	m := &Move{}
+	m := newMove()
 	// Castling
 	if a == "O-O" || a == "O-O-O" {
 		m.FromCol = 4
@@ -129,8 +139,59 @@ func (p *Position) Parse(a string) (*Move, error) {
 	if end < 2 {
 		return nil, ErrInvalid
 	}
-	v, _ := strconv.Atoi(string(a[end-1]))
-	m.ToRow = v - 1
+	m.ToRow = int(a[end-1] - '1')
 	m.ToCol = int(a[end-2] - 'a')
+	// Determine the source piece, whether or not we are capturing
+	// and analyse any disambiguation info we have been given
+	source := Pawn
+	capturing := false
+	for i := 0; i < len(a) && i < end-2; i++ {
+		r := a[i]
+		switch {
+		case r == 'K':
+			source = King
+		case r == 'Q':
+			source = Queen
+		case r == 'N':
+			source = Knight
+		case r == 'B':
+			source = Bishop
+		case r == 'R':
+			source = Rook
+		case r == 'x':
+			capturing = true
+		case r >= '1' && r <= '9':
+			m.FromRow = int(r - '1')
+		case r >= 'a' && r <= 'h':
+			m.FromCol = int(r - 'a')
+		}
+	}
+	if m.FromCol != None && m.ToCol != None && m.FromRow != None && m.ToRow != None {
+		return m, nil
+	}
+
+	// Piece disambiguation
+	switch source {
+	case King:
+		// For king, we just need to check the surrounding tiles to find the king
+		// This can never be ambiguous
+		for _, r := range []int{-1, 0, 1} {
+			for _, c := range []int{-1, 0, 1} {
+				if r == 0 && c == 0 {
+					continue
+				}
+				piece, _ := p.At(m.ToCol+c, m.ToRow+r)
+				if piece.Type == King {
+					m.FromCol = m.ToCol + c
+					m.FromRow = m.ToRow + r
+					return m, nil
+				}
+			}
+		}
+
+		return nil, ErrImpossible
+	}
+	_ = source
+	_ = capturing
 	return m, nil
 }
