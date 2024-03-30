@@ -3,6 +3,8 @@ package pgn
 
 import (
 	"bufio"
+	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"unicode"
@@ -84,4 +86,29 @@ func Parse(s string) (r Result, err error) {
 		}
 	}
 	return
+}
+
+// Split takes in an io.Reader and parses all PGN structures
+// contained within it.
+func Split(r io.Reader) chan string {
+	c := make(chan string)
+	sc := bufio.NewScanner(r)
+	go func() {
+		defer close(c)
+		inPgn := true
+		buf := strings.Builder{}
+		for sc.Scan() {
+			l := sc.Text()
+			in := len(l) > 0 && l[0] == '[' // PGN key
+			if !inPgn && in {
+				// New PGN detected
+				c <- buf.String()
+				buf.Reset()
+			}
+			buf.WriteString(fmt.Sprintf("%s\n", l))
+			inPgn = in
+		}
+		c <- buf.String() // For the last PGN
+	}()
+	return c
 }
