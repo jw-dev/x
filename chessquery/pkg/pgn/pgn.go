@@ -49,10 +49,14 @@ func extractMoves(s string) (r []string) {
 	if s[:2] != "1." {
 		return
 	}
-	t := strings.Split(s, " ")
-	for _, v := range t {
-		if !unicode.IsDigit(rune(v[0])) {
-			r = append(r, v)
+	start := 0
+	for i := 1; i < len(s); i++ {
+		if s[i-1] == ' ' && unicode.IsLetter(rune(s[i])) {
+			start = i
+		}
+		if (s[i] == ' ' || s[i] == '?' || s[i] == '!') && start > 0 {
+			r = append(r, s[start:i])
+			start = 0
 		}
 	}
 	return

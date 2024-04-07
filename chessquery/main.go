@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -16,7 +17,11 @@ func main() {
 
 	i := 0
 	start := time.Now()
-	for range pgn.Split(r) {
+	for s := range pgn.Split(r) {
+		_, err := pgn.Parse(s)
+		if err != nil {
+			log.Fatalln(err)
+		}
 		i += 1
 	}
 	t := time.Now()
