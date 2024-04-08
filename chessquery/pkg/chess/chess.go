@@ -171,6 +171,10 @@ func (p *Position) Parse(a string) (*Move, error) {
 	}
 
 	// Piece disambiguation
+	color := White
+	if !p.whiteMove {
+		color = Black
+	}
 	switch source {
 	case King:
 		// For king, we just need to check the surrounding tiles to find the king
@@ -181,15 +185,54 @@ func (p *Position) Parse(a string) (*Move, error) {
 					continue
 				}
 				piece, _ := p.At(m.ToCol+c, m.ToRow+r)
-				if piece.Type == King {
+				if piece.Type == King && piece.Color == color {
 					m.FromCol = m.ToCol + c
 					m.FromRow = m.ToRow + r
 					return m, nil
 				}
 			}
 		}
-
 		return nil, ErrImpossible
+	case Queen:
+		// Check all of the possible vectors for a queen.
+		// Horizontal.
+		for c := 0; c < 8; c++ {
+			piece, _ := p.At(c, m.ToRow)
+			if piece.Type == Queen && piece.Color == color {
+				m.FromCol = c
+				m.FromRow = m.ToRow
+				return m, nil
+			}
+		}
+		// Vertical.
+		for r := 0; r < 8; r++ {
+			piece, _ := p.At(m.ToCol, r)
+			if piece.Type == Queen && piece.Color == color {
+				m.FromCol = m.ToCol
+				m.FromRow = r
+				return m, nil
+			}
+		}
+		// Diagonal.
+		for _, dr := range []int{-1, 1} {
+			for _, dc := range []int{-1, 1} {
+				r := m.ToRow + dr
+				c := m.ToCol + dc
+				for {
+					if r < 0 || c < 0 || r >= 8 || c >= 8 {
+						break
+					}
+					piece, _ := p.At(c, r)
+					if piece.Type == Queen && piece.Color == color {
+						m.FromCol = c
+						m.FromRow = r
+						return m, nil
+					}
+					r += dr
+					c += dc
+				}
+			}
+		}
 	}
 	_ = source
 	_ = capturing
