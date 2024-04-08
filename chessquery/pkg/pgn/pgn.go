@@ -82,6 +82,8 @@ func Parse(s string) (r Result, err error) {
 				r.WhiteElo = meta.asInt()
 			case "BlackElo":
 				r.BlackElo = meta.asInt()
+			case "Site":
+				r.Site = meta.value
 			}
 			continue
 		}
