@@ -1,12 +1,16 @@
 package query
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/jw-dev/x/chessquery/pkg/chess"
 	"github.com/jw-dev/x/chessquery/pkg/pgn"
 )
+
+// Function is an analyzer that takes in the board state and returns
+// a score. The higher the score, the more 'interesting' the position
+// is, according to that analyzer.
+type Query func(p *Payload) int64
 
 // Cadence is a type to identify when a query should be run.
 // A cadence of `Once` is called once, at the beginning of a game.
@@ -37,32 +41,28 @@ func newPayload(m pgn.Result) Payload {
 // Analyzer takes in a Payload and returns an int64 denoting
 // the `score` of the current position. Higher score = higher
 // weighting for the position.
-type Analyzer interface {
-	Analyze(p *Payload) int64
-}
-
-type analyzerMeta struct {
-	name  string
-	cad   Cadence
-	score int64
-	site  string
-	Analyzer
+type Analyzer struct {
+	Name    string
+	Score   int64
+	Link    string
+	q       Query
+	cadence Cadence
 }
 
 type Runner struct {
-	analyzers []analyzerMeta
+	analyzers []Analyzer
 }
 
 func NewRunner() *Runner {
 	return &Runner{}
 }
 
-func (r *Runner) Add(a Analyzer, name string, cad Cadence) {
-	r.analyzers = append(r.analyzers, analyzerMeta{
-		name:     name,
-		cad:      cad,
-		score:    math.MinInt64,
-		Analyzer: a,
+func (r *Runner) Add(name string, q Query, cadence Cadence) {
+	r.analyzers = append(r.analyzers, Analyzer{
+		Name:    name,
+		Score:   math.MinInt64,
+		q:       q,
+		cadence: cadence,
 	})
 }
 
@@ -71,17 +71,14 @@ func (r *Runner) Analyze(g pgn.Result) {
 	for i := range r.analyzers {
 		a := &r.analyzers[i]
 		payload := newPayload(g)
-		score := a.Analyze(&payload)
-		if score > a.score {
-			a.score = score
-			a.site = g.Site
+		score := a.q(&payload)
+		if score > a.Score {
+			a.Score = score
+			a.Link = g.Site
 		}
 	}
 }
 
-// TEMP FUNCTION
-func (r *Runner) PrintResults() {
-	for _, a := range r.analyzers {
-		fmt.Printf("%s: %d (%s)\n", a.name, a.score, a.site)
-	}
+func (r *Runner) Results() []Analyzer {
+	return r.analyzers
 }

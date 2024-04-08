@@ -12,12 +12,6 @@ import (
 
 const FileName = "test.pgn"
 
-var queries = []query.Analyzer{
-	QElo{},
-	QLeastMoves{},
-	QMostMoves{},
-}
-
 func main() {
 	now := time.Now()
 	r, err := os.Open(FileName)
@@ -26,9 +20,9 @@ func main() {
 	}
 
 	runner := query.NewRunner()
-	for _, q := range queries {
-		runner.Add(q, "Test", query.Once)
-	}
+	runner.Add("EloDiff", QEloDiff, query.Once)
+	runner.Add("MaxNumMoves", QMostMoves, query.Once)
+	runner.Add("MinNumMoves", QLeastMoves, query.Once)
 
 	i := 0
 	for s := range pgn.Split(r) {
@@ -40,9 +34,9 @@ func main() {
 		i += 1
 	}
 
-	fmt.Printf("Analyzed %d games with %d analyzers in %dus!\n",
-		i,
-		len(queries),
-		time.Since(now).Microseconds())
-	runner.PrintResults()
+	res := runner.Results()
+	fmt.Printf("Analyzed %d games with %d analyzers in %dus\n", i, len(res), time.Since(now).Microseconds())
+	for _, r := range res {
+		fmt.Printf("%s... %d (%s)\n", r.Name, r.Score, r.Link)
+	}
 }
