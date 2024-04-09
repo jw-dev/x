@@ -2,18 +2,14 @@ package chess
 
 import (
 	"errors"
+	"unicode"
 )
 
 var (
 	ErrRange = errors.New("value given was out of bounds")
 )
 
-var defaultBoard Position = Position{
-	whiteMove: true,
-	pieces: [64]Piece{
-		0: {1, 4}, 1: {1, 1}, 6: {0, 1}, 7: {0, 4}, 8: {1, 3}, 9: {1, 1}, 14: {0, 1}, 15: {0, 3}, 16: {1, 2}, 17: {1, 1}, 22: {0, 1}, 23: {0, 2}, 24: {1, 5}, 25: {1, 1}, 30: {0, 1}, 31: {0, 5}, 32: {1, 6}, 33: {1, 1}, 38: {0, 1}, 39: {0, 6}, 40: {1, 2}, 41: {1, 1}, 46: {0, 1}, 47: {0, 2}, 48: {1, 3}, 49: {1, 1}, 54: {0, 1}, 55: {0, 3}, 56: {1, 4}, 57: {1, 1}, 62: {0, 1}, 63: {0, 4},
-	},
-}
+var defaultBoard *Position = FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
 const (
 	Black Color = iota
@@ -29,6 +25,50 @@ const (
 	Queen
 	King
 )
+
+/*
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+*/
+func FEN(fen string) *Position {
+	p := &Position{whiteMove: true}
+	r := 0
+	c := 0
+	for i := 0; i < len(fen) && fen[i] != ' '; i++ {
+		cr := fen[i]
+		if cr == '/' {
+			r += 1
+			c = 0
+			continue
+		}
+		if cr >= '0' && cr <= '8' {
+			c += int(cr - '0')
+			continue
+		}
+		piece := Piece{}
+		if unicode.IsUpper(rune(cr)) {
+			piece.Color = White
+		}
+		switch unicode.ToUpper(rune(cr)) {
+		case 'K':
+			piece.Type = King
+		case 'Q':
+			piece.Type = Queen
+		case 'R':
+			piece.Type = Rook
+		case 'N':
+			piece.Type = Knight
+		case 'B':
+			piece.Type = Bishop
+		case 'P':
+			piece.Type = Pawn
+		}
+		if piece.Type != Empty {
+			p.setPiece(c, 7-r, piece)
+		}
+		c += 1
+	}
+	return p
+}
 
 type Color uint8
 type PieceType uint8
@@ -70,15 +110,19 @@ type Position struct {
 	pieces    [64]Piece
 }
 
-func Default() Position { return defaultBoard }
+func Default() Position { return *defaultBoard }
 
 func (pos *Position) At(x, y int) (p Piece, err error) {
 	if x < 0 || x >= 8 || y < 0 || y >= 8 {
 		err = ErrRange
 		return
 	}
-	p = pos.pieces[x*8+y]
+	p = pos.pieces[y*8+x]
 	return
+}
+
+func (ps *Position) setPiece(x, y int, p Piece) {
+	ps.pieces[y*8+x] = p
 }
 
 func isMoveRune(r rune) bool {
