@@ -10,10 +10,7 @@ import (
 func TestDefault(t *testing.T) {
 	pos := chess.Default()
 	exp := chess.MakePiece(chess.White, chess.Rook)
-	p, err := pos.At(0, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := pos.At(0, 0)
 	require.Equal(t, exp, p, "piece did not match")
 }
 

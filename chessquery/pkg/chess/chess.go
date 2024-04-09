@@ -5,12 +5,6 @@ import (
 	"unicode"
 )
 
-var (
-	ErrRange = errors.New("value given was out of bounds")
-)
-
-var defaultBoard *Position = FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-
 const (
 	Black Color = iota
 	White
@@ -25,6 +19,21 @@ const (
 	Queen
 	King
 )
+
+var (
+	ErrInvalid    = errors.New("invalid algebraic notation")
+	ErrImpossible = errors.New("given move is impossible with given board")
+)
+
+var defaultBoard *Position = FEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+
+var pieceChar = map[rune]PieceType{
+	'K': King,
+	'Q': Queen,
+	'N': Knight,
+	'R': Rook,
+	'B': Bishop,
+}
 
 /*
 rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
@@ -70,6 +79,13 @@ func FEN(fen string) *Position {
 	return p
 }
 
+func isMoveRune(r rune) bool {
+	if _, ok := pieceChar[r]; ok {
+		return true
+	}
+	return r == 'x' || (r >= '1' && r <= '9') || (r >= 'a' && r <= 'h')
+}
+
 type Color uint8
 type PieceType uint8
 
@@ -112,46 +128,13 @@ type Position struct {
 
 func Default() Position { return *defaultBoard }
 
-func (pos *Position) At(x, y int) (p Piece, err error) {
-	if x < 0 || x >= 8 || y < 0 || y >= 8 {
-		err = ErrRange
-		return
-	}
-	p = pos.pieces[y*8+x]
-	return
+func (pos *Position) At(x, y int) (p Piece) {
+	return pos.pieces[y*8+x]
 }
 
 func (ps *Position) setPiece(x, y int, p Piece) {
 	ps.pieces[y*8+x] = p
 }
-
-func isMoveRune(r rune) bool {
-	switch {
-	case r == 'K':
-		return true
-	case r == 'Q':
-		return true
-	case r == 'R':
-		return true
-	case r == 'B':
-		return true
-	case r == 'N':
-		return true
-	case r == 'x':
-		return true
-	case r >= '1' && r <= '9':
-		return true
-	case r >= 'a' && r <= 'h':
-		return true
-	default:
-		return false
-	}
-}
-
-var (
-	ErrInvalid    = errors.New("invalid algebraic notation")
-	ErrImpossible = errors.New("given move is impossible with given board")
-)
 
 // Parse parses a move in algebraic notation (e.g., "e4" or "Qxa8" etc.) and returns a move
 // for the corresponding position. Returns an error if the move is not in standard notation
@@ -187,21 +170,14 @@ func (p *Position) Parse(a string) (*Move, error) {
 	m.ToCol = int(a[end-2] - 'a')
 	// Determine the source piece, whether or not we are capturing
 	// and analyse any disambiguation info we have been given
-	source := Pawn
+	source := Empty
 	capturing := false
 	for i := 0; i < len(a) && i < end-2; i++ {
 		r := a[i]
+		src, ok := pieceChar[rune(r)]
 		switch {
-		case r == 'K':
-			source = King
-		case r == 'Q':
-			source = Queen
-		case r == 'N':
-			source = Knight
-		case r == 'B':
-			source = Bishop
-		case r == 'R':
-			source = Rook
+		case ok:
+			source = src
 		case r == 'x':
 			capturing = true
 		case r >= '1' && r <= '9':
@@ -228,7 +204,7 @@ func (p *Position) Parse(a string) (*Move, error) {
 				if r == 0 && c == 0 {
 					continue
 				}
-				piece, _ := p.At(m.ToCol+c, m.ToRow+r)
+				piece := p.At(m.ToCol+c, m.ToRow+r)
 				if piece.Type == King && piece.Color == color {
 					m.FromCol = m.ToCol + c
 					m.FromRow = m.ToRow + r
@@ -241,7 +217,7 @@ func (p *Position) Parse(a string) (*Move, error) {
 		// Check all of the possible vectors for a queen.
 		// Horizontal.
 		for c := 0; c < 8; c++ {
-			piece, _ := p.At(c, m.ToRow)
+			piece := p.At(c, m.ToRow)
 			if piece.Type == Queen && piece.Color == color {
 				m.FromCol = c
 				m.FromRow = m.ToRow
@@ -250,7 +226,7 @@ func (p *Position) Parse(a string) (*Move, error) {
 		}
 		// Vertical.
 		for r := 0; r < 8; r++ {
-			piece, _ := p.At(m.ToCol, r)
+			piece := p.At(m.ToCol, r)
 			if piece.Type == Queen && piece.Color == color {
 				m.FromCol = m.ToCol
 				m.FromRow = r
@@ -266,7 +242,7 @@ func (p *Position) Parse(a string) (*Move, error) {
 					if r < 0 || c < 0 || r >= 8 || c >= 8 {
 						break
 					}
-					piece, _ := p.At(c, r)
+					piece := p.At(c, r)
 					if piece.Type == Queen && piece.Color == color {
 						m.FromCol = c
 						m.FromRow = r
