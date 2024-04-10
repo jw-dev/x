@@ -33,6 +33,7 @@ var pieceChar = map[rune]PieceType{
 	'N': Knight,
 	'R': Rook,
 	'B': Bishop,
+	'P': Pawn,
 }
 
 /*
@@ -43,7 +44,7 @@ func FEN(fen string) *Position {
 	r := 0
 	c := 0
 	for i := 0; i < len(fen) && fen[i] != ' '; i++ {
-		cr := fen[i]
+		cr := rune(fen[i])
 		if cr == '/' {
 			r += 1
 			c = 0
@@ -53,26 +54,13 @@ func FEN(fen string) *Position {
 			c += int(cr - '0')
 			continue
 		}
-		piece := Piece{}
-		if unicode.IsUpper(rune(cr)) {
-			piece.Color = White
+		color := Black
+		if unicode.IsUpper(cr) {
+			color = White
 		}
-		switch unicode.ToUpper(rune(cr)) {
-		case 'K':
-			piece.Type = King
-		case 'Q':
-			piece.Type = Queen
-		case 'R':
-			piece.Type = Rook
-		case 'N':
-			piece.Type = Knight
-		case 'B':
-			piece.Type = Bishop
-		case 'P':
-			piece.Type = Pawn
-		}
-		if piece.Type != Empty {
-			p.setPiece(c, 7-r, piece)
+		cr = unicode.ToUpper(cr)
+		if typ, ok := pieceChar[cr]; ok {
+			p.setPiece(c, 7-r, MakePiece(color, typ))
 		}
 		c += 1
 	}
