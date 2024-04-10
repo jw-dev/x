@@ -42,28 +42,32 @@ func newPayload(m pgn.Result) Payload {
 // the `score` of the current position. Higher score = higher
 // weighting for the position.
 type Analyzer struct {
-	Name    string
-	Score   int64
-	Link    string
-	q       Query
-	cadence Cadence
+	Name     string
+	Cadence  Cadence
+	Query    Query
+	Reversed bool
+	score    int64
+	link     string
+}
+
+type Result struct {
+	Name  string
+	Score int64
+	Link  string
 }
 
 type Runner struct {
 	analyzers []Analyzer
 }
 
-func NewRunner() *Runner {
-	return &Runner{}
-}
-
-func (r *Runner) Add(name string, q Query, cadence Cadence) {
-	r.analyzers = append(r.analyzers, Analyzer{
-		Name:    name,
-		Score:   math.MinInt64,
-		q:       q,
-		cadence: cadence,
-	})
+func NewRunner(a ...Analyzer) *Runner {
+	for i := range a {
+		a[i].score = math.MinInt64
+		if a[i].Reversed {
+			a[i].score = math.MaxInt64
+		}
+	}
+	return &Runner{analyzers: a}
 }
 
 func (r *Runner) Analyze(g pgn.Result) {
@@ -71,14 +75,21 @@ func (r *Runner) Analyze(g pgn.Result) {
 	for i := range r.analyzers {
 		a := &r.analyzers[i]
 		payload := newPayload(g)
-		score := a.q(&payload)
-		if score > a.Score {
-			a.Score = score
-			a.Link = g.Site
+		score := a.Query(&payload)
+		if (!a.Reversed && score > a.score) || (a.Reversed && score < a.score) {
+			a.score = score
+			a.link = g.Site
 		}
 	}
 }
 
-func (r *Runner) Results() []Analyzer {
-	return r.analyzers
+func (r *Runner) Results() (res []Result) {
+	for _, a := range r.analyzers {
+		res = append(res, Result{
+			Name:  a.Name,
+			Score: a.score,
+			Link:  a.link,
+		})
+	}
+	return
 }
