@@ -2,6 +2,8 @@ package chess
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"unicode"
 )
 
@@ -112,6 +114,35 @@ func newMove() *Move {
 type Position struct {
 	whiteMove bool
 	pieces    [64]Piece
+}
+
+func (p Position) String() string {
+	b := strings.Builder{}
+	for r := 0; r < 8; r++ {
+		b.WriteString(fmt.Sprintf("%c ", '1'+r))
+		for c := 0; c < 8; c++ {
+			piece := p.At(c, r)
+			for key, value := range pieceChar {
+				if value == piece.Type {
+					c := key
+					if piece.Color == Black {
+						c = unicode.ToLower(c)
+					}
+					b.WriteString(fmt.Sprintf("%c ", c))
+					break
+				}
+			}
+			if piece.Type == Empty {
+				b.WriteString(". ")
+			}
+		}
+		b.WriteRune('\n')
+	}
+	b.WriteString("  ")
+	for c := 0; c < 8; c++ {
+		b.WriteString(fmt.Sprintf("%c ", 'A'+c))
+	}
+	return b.String()
 }
 
 func Default() Position { return *defaultBoard }
