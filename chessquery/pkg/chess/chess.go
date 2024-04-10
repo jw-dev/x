@@ -118,7 +118,7 @@ type Position struct {
 
 func (p Position) String() string {
 	b := strings.Builder{}
-	for r := 0; r < 8; r++ {
+	for r := 7; r >= 0; r-- {
 		b.WriteString(fmt.Sprintf("%c ", '1'+r))
 		for c := 0; c < 8; c++ {
 			piece := p.At(c, r)
