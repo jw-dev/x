@@ -10,7 +10,7 @@ import (
 	"github.com/jw-dev/x/chessquery/pkg/query"
 )
 
-const FileName = "download/lichess-202301.pgn"
+const FileName = "test.pgn"
 
 var analyzers = []query.Analyzer{
 	{

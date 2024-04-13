@@ -54,13 +54,11 @@ func (r *Result) extractKeyValue(s string) {
 		case "Black":
 			r.Black = value
 		case "WhiteElo":
-			v, err := strconv.Atoi(value)
-			if err != nil {
+			if v, err := strconv.Atoi(value); err == nil {
 				r.WhiteElo = v
 			}
 		case "BlackElo":
-			v, err := strconv.Atoi(value)
-			if err != nil {
+			if v, err := strconv.Atoi(value); err == nil {
 				r.BlackElo = v
 			}
 		case "Site":
