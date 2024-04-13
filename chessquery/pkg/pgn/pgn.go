@@ -3,22 +3,14 @@ package pgn
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"unicode"
 )
 
-type meta struct {
-	key   string
-	value string
-}
-
-func (m meta) asInt() int {
-	s := strings.Trim(m.value, " \"")
-	v, _ := strconv.Atoi(s)
-	return v
+func isKeyValue(s string) bool {
+	return len(s) > 4 && s[0] == '[' && s[len(s)-1] == ']'
 }
 
 type Result struct {
@@ -31,90 +23,88 @@ type Result struct {
 	Moves    []string
 }
 
-func extractMeta(s string) (m meta, ok bool) {
+func (r *Result) zero() {
+	r.Event = ""
+	r.Site = ""
+	r.White = ""
+	r.Black = ""
+	r.WhiteElo = 0
+	r.BlackElo = 0
+	r.Moves = make([]string, 0)
+}
+
+func (r *Result) extractKeyValue(s string) {
 	if len(s) < 3 {
 		return
 	}
 	if s[0] != '[' || s[len(s)-1] != ']' {
 		return
 	}
-	p := strings.Split(s[1:len(s)-1], " ")
-	m.key = p[0]
-	m.value = strings.Join(p[1:], " ")
-	ok = true
-	return
+	mid := strings.IndexByte(s, ' ')
+	if mid > -1 {
+		key := s[1:mid]
+		q1 := strings.IndexByte(s, '"')
+		q2 := strings.LastIndexByte(s, '"')
+		value := s[q1+1 : q2]
+		switch key {
+		case "Event":
+			r.Event = value
+		case "White":
+			r.White = value
+		case "Black":
+			r.Black = value
+		case "WhiteElo":
+			v, err := strconv.Atoi(value)
+			if err != nil {
+				r.WhiteElo = v
+			}
+		case "BlackElo":
+			v, err := strconv.Atoi(value)
+			if err != nil {
+				r.BlackElo = v
+			}
+		case "Site":
+			r.Site = value
+		}
+	}
 }
 
-func extractMoves(s string) (r []string) {
-	if s[:2] != "1." {
-		return
-	}
+func (r *Result) extractMoves(moves string) {
+	r.Moves = make([]string, 0, len(moves)/6+10)
 	start := 0
-	for i := 1; i < len(s); i++ {
-		if s[i-1] == ' ' && unicode.IsLetter(rune(s[i])) {
+	for i := 1; i < len(moves); i++ {
+		c := moves[i]
+		if unicode.IsLetter(rune(c)) && moves[i-1] == ' ' {
 			start = i
 		}
-		if (s[i] == ' ' || s[i] == '?' || s[i] == '!') && start > 0 {
-			r = append(r, s[start:i])
+		if start > 0 && (c == ' ' || c == '?' || c == '!') {
+			r.Moves = append(r.Moves, moves[start:i])
 			start = 0
 		}
 	}
-	return
 }
 
-func Parse(s string) (r Result, err error) {
-	scanner := bufio.NewScanner(strings.NewReader(s))
-	for scanner.Scan() {
-		line := scanner.Text()
+func ReadAll(r io.Reader, f func(r *Result)) {
+	sc := bufio.NewScanner(r)
+	res := new(Result)
+	inPgn := true
+	for sc.Scan() {
+		line := sc.Text()
 		if len(line) == 0 {
 			continue
 		}
-		meta, ok := extractMeta(line)
-		if ok {
-			switch meta.key {
-			case "Event":
-				r.Event = meta.value
-			case "White":
-				r.White = meta.value
-			case "Black":
-				r.Black = meta.value
-			case "WhiteElo":
-				r.WhiteElo = meta.asInt()
-			case "BlackElo":
-				r.BlackElo = meta.asInt()
-			case "Site":
-				r.Site = meta.value
+		if isKeyValue(line) {
+			if !inPgn {
+				f(res)
+				res.zero()
+				inPgn = true
 			}
+			res.extractKeyValue(line)
 			continue
 		}
-		if unicode.IsDigit(rune(line[0])) {
-			r.Moves = extractMoves(line)
+		inPgn = false
+		if unicode.IsNumber(rune(line[0])) {
+			res.extractMoves(line)
 		}
 	}
-	return
-}
-
-// Split takes in an io.Reader and parses all PGN structures
-// contained within it.
-func Split(r io.Reader) chan string {
-	c := make(chan string)
-	sc := bufio.NewScanner(r)
-	go func() {
-		defer close(c)
-		inPgn := true
-		buf := strings.Builder{}
-		for sc.Scan() {
-			l := sc.Text()
-			in := len(l) > 0 && l[0] == '[' // PGN key
-			if !inPgn && in {
-				// New PGN detected
-				c <- buf.String()
-				buf.Reset()
-			}
-			buf.WriteString(fmt.Sprintf("%s\n", l))
-			inPgn = in
-		}
-		c <- buf.String() // For the last PGN
-	}()
-	return c
 }

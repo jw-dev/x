@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"time"
@@ -14,21 +13,21 @@ import (
 const FileName = "download/lichess-202301.pgn"
 
 var analyzers = []query.Analyzer{
-	query.Analyzer{
+	{
 		Name:    "EloDiff",
 		Cadence: query.Once,
 		Query: func(p *query.Payload) int64 {
 			return int64(math.Abs(float64(p.Meta.WhiteElo - p.Meta.BlackElo)))
 		},
 	},
-	query.Analyzer{
+	{
 		Name:    "MaxMoves",
 		Cadence: query.Once,
 		Query: func(p *query.Payload) int64 {
 			return int64(len(p.Meta.Moves))
 		},
 	},
-	query.Analyzer{
+	{
 		Name:     "MinMoves",
 		Cadence:  query.Once,
 		Reversed: true,
@@ -47,18 +46,18 @@ func main() {
 
 	runner := query.NewRunner(analyzers...)
 	i := 0
-	for s := range pgn.Split(r) {
-		game, err := pgn.Parse(s)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		runner.Analyze(game)
+
+	pgn.ReadAll(r, func(r *pgn.Result) {
+		runner.Analyze(r)
 		i += 1
-	}
+	})
 
 	res := runner.Results()
-	fmt.Printf("Analyzed %d games with %d analyzers in %dus\n", i, len(res), time.Since(now).Microseconds())
+	fmt.Printf("Analyzed %d games with %d analyzers in %.2fs\n",
+		i,
+		len(res),
+		time.Since(now).Seconds())
 	for _, r := range res {
-		fmt.Printf("%s... %d (%s)\n", r.Name, r.Score, r.Link)
+		fmt.Printf("%-15s%-10d%s\n", r.Name, r.Score, r.Link)
 	}
 }

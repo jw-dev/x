@@ -27,12 +27,12 @@ const (
 // Payload is the data an Analyzer receives from the current chess
 // game that is running.
 type Payload struct {
-	Meta            pgn.Result
+	Meta            *pgn.Result
 	LastMove        chess.Move
 	CurrentPosition chess.Position
 }
 
-func newPayload(m pgn.Result) Payload {
+func newPayload(m *pgn.Result) Payload {
 	return Payload{
 		Meta: m,
 	}
@@ -70,7 +70,7 @@ func NewRunner(a ...Analyzer) *Runner {
 	return &Runner{analyzers: a}
 }
 
-func (r *Runner) Analyze(g pgn.Result) {
+func (r *Runner) Analyze(g *pgn.Result) {
 	// Only `Meta` type analyzers are supported right now...
 	for i := range r.analyzers {
 		a := &r.analyzers[i]
