@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jw-dev/x/chessquery/pkg/pgn"
 	"github.com/jw-dev/x/chessquery/pkg/query"
 )
 
-const FileName = "test.pgn"
+const FileName = "download/lichess-202301.pgn"
 
 var analyzers = []query.Analyzer{
 	{
@@ -35,6 +36,64 @@ var analyzers = []query.Analyzer{
 			return int64(len(p.Meta.Moves))
 		},
 	},
+	{
+		Name:    "MostEdge",
+		Cadence: query.Once,
+		Query: func(p *query.Payload) int64 {
+			i := int64(0)
+			for _, s := range p.Meta.Moves {
+				move, err := p.CurrentPosition.Parse(s)
+				if move == nil {
+					fmt.Println(s)
+					panic(err)
+				}
+				if move.FromCol == 0 || move.FromCol == 7 {
+					i += 1
+				}
+			}
+			return i
+		},
+	},
+	{
+		Name:    "MostKingMoves",
+		Cadence: query.Once,
+		Query: func(p *query.Payload) int64 {
+			i := int64(0)
+			for _, s := range p.Meta.Moves {
+				if s[0] == 'K' || s[0] == 'k' {
+					i += 1
+				}
+			}
+			return i
+		},
+	},
+	{
+
+		Name:    "MostQueenMoves",
+		Cadence: query.Once,
+		Query: func(p *query.Payload) int64 {
+			i := int64(0)
+			for _, s := range p.Meta.Moves {
+				if s[0] == 'Q' || s[0] == 'q' {
+					i += 1
+				}
+			}
+			return i
+		},
+	},
+	{
+		Name:    "MostCastleChecks",
+		Cadence: query.Once,
+		Query: func(p *query.Payload) int64 {
+			i := int64(0)
+			for _, s := range p.Meta.Moves {
+				if (s[len(s)-1] == '+' || s[len(s)-1] == '#') && strings.HasPrefix(s, "O-O") {
+					i += 1
+				}
+			}
+			return i
+		},
+	},
 }
 
 func main() {
@@ -45,8 +104,8 @@ func main() {
 	}
 
 	runner := query.NewRunner(analyzers...)
-	i := 0
 
+	i := 0
 	pgn.ReadAll(r, func(r *pgn.Result) {
 		runner.Analyze(r)
 		i += 1
@@ -58,6 +117,6 @@ func main() {
 		len(res),
 		time.Since(now).Seconds())
 	for _, r := range res {
-		fmt.Printf("%-15s%-10d%s\n", r.Name, r.Score, r.Link)
+		fmt.Printf("%-20s%-10d%s\n", r.Name, r.Score, r.Link)
 	}
 }

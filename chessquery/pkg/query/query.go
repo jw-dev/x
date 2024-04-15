@@ -34,7 +34,8 @@ type Payload struct {
 
 func newPayload(m *pgn.Result) Payload {
 	return Payload{
-		Meta: m,
+		Meta:            m,
+		CurrentPosition: chess.Default(),
 	}
 }
 

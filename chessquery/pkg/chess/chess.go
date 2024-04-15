@@ -164,14 +164,14 @@ func (p *Position) Parse(a string) (*Move, error) {
 	}
 	m := newMove()
 	// Castling
-	if a == "O-O" || a == "O-O-O" {
+	if strings.HasPrefix(a, "O-O") {
 		m.FromCol = 4
 		m.FromRow = 0
 		m.ToCol = 6
 		if !p.whiteMove {
 			m.FromRow = 7
 		}
-		if a == "O-O-O" {
+		if strings.HasPrefix(a, "O-O-O") {
 			m.ToCol = 2
 		}
 		m.ToRow = m.FromRow
@@ -223,6 +223,9 @@ func (p *Position) Parse(a string) (*Move, error) {
 				if r == 0 && c == 0 {
 					continue
 				}
+				if r < 0 || c < 0 || r >= 8 || c >= 8 {
+					break
+				}
 				piece := p.At(m.ToCol+c, m.ToRow+r)
 				if piece.Type == King && piece.Color == color {
 					m.FromCol = m.ToCol + c
@@ -231,7 +234,7 @@ func (p *Position) Parse(a string) (*Move, error) {
 				}
 			}
 		}
-		return nil, ErrImpossible
+		return m, ErrImpossible
 	case Queen:
 		// Check all of the possible vectors for a queen.
 		// Horizontal.
