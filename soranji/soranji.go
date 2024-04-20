@@ -4,51 +4,64 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
-/*
-algorithm SM-2 is
-    input:  user grade q
-            repetition number n
-            easiness factor EF
-            interval I
-    output: updated values of n, EF, and I
+type grade int
 
-    if q ≥ 3 (correct response) then
-        if n = 0 then
-            I ← 1
-        else if n = 1 then
-            I ← 6
-        else
-            I ← round(I × EF)
-        end if
-        increment n
-    else (incorrect response)
-        n ← 0
-        I ← 1
-    end if
+const (
+	Easy     grade = 5
+	Ok       grade = 4
+	Hard     grade = 3
+	NoRecall grade = 0
+)
 
-    EF ← EF + (0.1 − (5 − q) × (0.08 + (5 − q) × 0.02))
-    if EF < 1.3 then
-        EF ← 1.3
-    end if
+var rGrade = map[rune]grade{
+	'e': Easy,
+	'o': Ok,
+	'h': Hard,
+	'n': NoRecall,
+}
 
-    return (n, EF, I)
-*/
-
-type deck struct {
-	cards []card
+func prompt(p string, f func(s string) bool) {
+	s := ""
+	for {
+		fmt.Print(p)
+		fmt.Scanln(&s)
+		if f(s) {
+			break
+		}
+	}
 }
 
 type card struct {
-	back     string
-	front    string
-	grade    int
-	rep      int
-	interval int
+	back       string
+	front      string
+	easiness   float64
+	repetition int
+	interval   int
+}
+
+func (c *card) review(q grade) {
+	if q >= Ok {
+		c.repetition += 1
+		m := math.Round(float64(c.interval) * c.easiness)
+		c.interval = int(m)
+	} else {
+		c.repetition = 0
+		c.interval = 1
+	}
+	gradeFlt := float64(q)
+	c.easiness += (0.1 - (5.0-gradeFlt)*(0.08+(5.0-gradeFlt)*0.02))
+	c.easiness = math.Max(c.easiness, 1.3)
+}
+
+type deck struct {
+	cards []card
 }
 
 func read(p string) (d deck, err error) {
@@ -56,27 +69,22 @@ func read(p string) (d deck, err error) {
 	if err != nil {
 		return
 	}
+	defer f.Close()
 	s := bufio.NewScanner(f)
-	for s.Scan() {
+	for i := 1; s.Scan(); i++ {
 		l := s.Text()
-		if l == "" {
-			continue
-		}
-		c := card{}
+		c := card{easiness: 2.5}
 		parts := strings.Split(l, "\t")
-		len := len(parts)
-		switch len {
-		case 4:
-			if v, err := strconv.Atoi(parts[2]); err != nil {
-				c.rep = v
-			}
-			if v, err := strconv.Atoi(parts[3]); err != nil {
-				c.interval = v
-			}
-			fallthrough
-		case 2:
-			c.front = parts[0]
-			c.back = parts[1]
+		if len(parts) <= 1 {
+			err = fmt.Errorf("err parsing line %d of length %d", i, len(parts))
+			return
+		}
+		c.front = parts[0]
+		c.back = parts[1]
+		if len(parts) == 5 {
+			c.interval, _ = strconv.Atoi(parts[2])
+			c.repetition, _ = strconv.Atoi(parts[3])
+			c.easiness, _ = strconv.ParseFloat(parts[4], 64)
 		}
 		d.cards = append(d.cards, c)
 	}
@@ -91,33 +99,38 @@ func (d deck) write(p string) (err error) {
 	defer f.Close()
 	w := bufio.NewWriter(f)
 	for _, c := range d.cards {
-		l := fmt.Sprintf("%s\t%s\t%d\t%d\n", c.front, c.back, c.rep, c.interval)
+		f := "%s\t%s\t%d\t%d\t%f\n"
+		l := fmt.Sprintf(f, c.front, c.back, c.repetition, c.interval, c.easiness)
 		w.WriteString(l)
 	}
 	w.Flush()
 	return
 }
 
-func prompt(p string, f func(s string) bool) {
-	s := ""
-	for {
-		fmt.Print(p)
-		fmt.Scanln(&s)
-		if f(s) {
-			break
-		}
-	}
-}
-
 func (d deck) study() {
 	l := len(d.cards)
-	for i, card := range d.cards {
-		fmt.Printf("(%d of %d) %s", i, l, card.front)
+	for i := range d.cards {
+		card := &d.cards[i]
+		fmt.Printf("(%d of %d) %s ", i+1, l, card.front)
 		fmt.Scanln()
 		fmt.Println(card.back)
-		prompt("(y)es (h)ard (n)o (q)uit? ", func(s string) bool {
-			return true
-		})
+
+		s := ""
+		ok := false
+		for !ok {
+			fmt.Print("(e)asy (o)k (h)ard (n)o-recall (q)uit? ")
+			fmt.Scanln(&s)
+			s = strings.ToLower(s)
+			switch {
+			case s == "q":
+				return
+			case s == "o" || s == "h" || s == "e" || s == "n":
+				r, _ := utf8.DecodeRuneInString(s)
+				grade := rGrade[r]
+				card.review(grade)
+				ok = true
+			}
+		}
 	}
 }
 
